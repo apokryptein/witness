@@ -19,7 +19,12 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Add routes
-	mux.HandleFunc("/", handler.RequestHandler)
+	mux.HandleFunc("/echo", handler.EchoHandler)
+	mux.HandleFunc("/ip", handler.IPHandler)
+	mux.HandleFunc("/health", handler.HealthHandler)
+	mux.HandleFunc("/whoami", handler.WhoHandler)
+	mux.HandleFunc("/headers", handler.HealthHandler)
+	mux.HandleFunc("/", handler.NotFoundHandler)
 
 	// LOG
 	fmt.Printf("[INFO] Server listening on: %s:%s\n", *host, *port)

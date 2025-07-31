@@ -3,43 +3,170 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
-// RequestHandler implements the http.Handler interface and acts
-// as a very basic
-func RequestHandler(w http.ResponseWriter, r *http.Request) {
+// ========================= //
+// === STRUCT DEFINITIONS == //
+// ========================= //
+
+// TLSData represents pertinent TLS data
+type TLSData struct {
+	Version     uint16
+	CipherSuite uint16
+}
+
+// Whoami represents selected data for the whoami endpoint
+type Whoami struct {
+	IP      string
+	TLS     TLSData
+	Headers map[string]string
+}
+
+// ========================== //
+// === HANDLER DEFINITIONS == //
+// ========================== //
+
+// EchoHandler is an http.Handler containing logic for simple echo
+// server functionality
+func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	// Logging
 	log.Printf("%s %s", r.Method, r.URL.Path)
 
-	// Switch on path
-	switch r.URL.Path {
-	case "/echo":
-		// Read body
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Failed to read body", http.StatusInternalServerError)
-		}
+	// Read body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusInternalServerError)
+	}
 
-		// Echo body back
-		fmt.Fprintf(w, "%s", body)
+	// Echo body back
+	fmt.Fprintf(w, "%s", body)
+}
 
-	case "/ip":
-		// Look for X-FORWARDED-FOR header
-		ip := r.Header.Get("X-FORWARDED-FOR")
+// IPHandler is an http.Handler that contains logic for an endpoint to return the client's IP address
+func IPHandler(w http.ResponseWriter, r *http.Request) {
+	// Logging
+	log.Printf("%s %s", r.Method, r.URL.Path)
 
-		// If header not present, set IP to RemoteAddr
-		if ip == "" {
-			ip = r.RemoteAddr
-		}
+	ip := fetchIP(r)
 
-		// Return IP address
-		fmt.Fprintf(w, "%s", ip)
+	// Return IP address
+	fmt.Fprintf(w, "%s", ip)
+}
 
-	default:
-		http.NotFound(w, r)
+// HealthHandler is an http.Handler that returns a status and timestamp
+// if the server is running and functional
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	// Logging
+	log.Printf("%s %s", r.Method, r.URL.Path)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	response := map[string]any{
+		"status":    "ok",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// HeaderHandler is an http.Handler that returns all headers for a given request
+// to the client
+func HeaderHandler(w http.ResponseWriter, r *http.Request) {
+	// Logging
+	log.Printf("%s %s", r.Method, r.URL.Path)
+
+	headers := fetchHeaders(r)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(headers); err != nil {
+		http.Error(w, "404 Not Found", http.StatusInternalServerError)
+	}
+}
+
+// WhoHandler is an http.Handler that returns various data back to the requester:
+// IP address, TLS info, and request headers
+func WhoHandler(w http.ResponseWriter, r *http.Request) {
+	// Logging
+	log.Printf("%s %s", r.Method, r.URL.Path)
+
+	ip := fetchIP(r)
+	tlsInfo := fetchTLS(r)
+	headers := fetchHeaders(r)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	whoami := Whoami{
+		IP:      ip,
+		TLS:     tlsInfo,
+		Headers: headers,
+	}
+
+	if err := json.NewEncoder(w).Encode(whoami); err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+}
+
+// NotFoundHandler is an http.Handler that is called when an invalid server route
+// is called
+func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
+	// Logging
+	log.Printf("%s %s", r.Method, r.URL.Path)
+
+	http.Error(w, "", http.StatusNotFound)
+}
+
+// =================================== //
+// === HELPER FUNCTION DEFINITIONS === //
+// =================================== //
+
+// fetchIP retrieves the X-FORWARDED-FOR header to check
+// for public IP address. If this value is nil, it returns
+// the RemoteAddr instead
+func fetchIP(req *http.Request) string {
+	// Look for X-FORWARDED-FOR header
+	ip := req.Header.Get("X-FORWARDED-FOR")
+
+	// If header not present, set IP to RemoteAddr
+	if ip == "" {
+		ip = req.RemoteAddr
+	}
+
+	return ip
+}
+
+// fetchHeaders retrieves and retruns all headers from the provided
+// HTTP request
+func fetchHeaders(req *http.Request) map[string]string {
+	headers := make(map[string]string)
+
+	for header, values := range req.Header {
+		headers[header] = values[0]
+	}
+
+	return headers
+}
+
+// fetchTLS retrieves relevant TLS data (version and ciphersuite)
+// if HTTPS/TLS is used
+func fetchTLS(req *http.Request) TLSData {
+	if req.TLS == nil {
+		return TLSData{}
+	}
+
+	tlsInfo := req.TLS
+
+	return TLSData{
+		Version:     tlsInfo.Version,
+		CipherSuite: tlsInfo.CipherSuite,
 	}
 }
