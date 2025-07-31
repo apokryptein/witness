@@ -18,7 +18,7 @@ import (
 
 func main() {
 	// Flag definitions
-	port := flag.String("port", "8080", "server listen port")
+	port := flag.String("port", "8443", "server listen port")
 	host := flag.String("host", "localhost", "host to bind to")
 	tlsCert := flag.String("tls-cert", "", "path to TLS certificate file")
 	tlsKey := flag.String("tls-key", "", "path to TLS key file")
