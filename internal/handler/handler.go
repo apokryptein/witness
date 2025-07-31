@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -36,10 +35,6 @@ type Whoami struct {
 // EchoHandler is an http.Handler containing logic for simple echo
 // server functionality
 func EchoHandler(w http.ResponseWriter, r *http.Request) {
-	// Logging
-	log.Printf("%s %s", r.Method, r.URL.Path)
-	log.Printf("Content-Length: %d\n", r.ContentLength)
-
 	// Read body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -56,61 +51,64 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 
 // IPHandler is an http.Handler that contains logic for an endpoint to return the client's IP address
 func IPHandler(w http.ResponseWriter, r *http.Request) {
-	// Logging
-	log.Printf("%s %s", r.Method, r.URL.Path)
-
+	// Fetch IP
 	ip := fetchIP(r)
 
+	// Set and write applicable headers
+	w.Header().Set("Content-Type", "text/plain; chartset=utf-8")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(ip)))
+	w.WriteHeader(http.StatusOK)
+
 	// Return IP address
-	fmt.Fprintf(w, "%s", ip)
+	w.Write([]byte(ip))
 }
 
 // HealthHandler is an http.Handler that returns a status and timestamp
 // if the server is running and functional
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	// Logging
-	log.Printf("%s %s", r.Method, r.URL.Path)
-
+	// Set and write headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
+	// Build response
 	response := map[string]any{
 		"status":    "ok",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
 }
 
 // HeaderHandler is an http.Handler that returns all headers for a given request
 // to the client
 func HeaderHandler(w http.ResponseWriter, r *http.Request) {
-	// Logging
-	log.Printf("%s %s", r.Method, r.URL.Path)
-
+	// Fetch headers
 	headers := fetchHeaders(r)
 
+	// Set and write response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(headers); err != nil {
-		http.Error(w, "404 Not Found", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 	}
 }
 
 // WhoHandler is an http.Handler that returns various data back to the requester:
 // IP address, TLS info, and request headers
 func WhoHandler(w http.ResponseWriter, r *http.Request) {
-	// Logging
-	log.Printf("%s %s", r.Method, r.URL.Path)
-
+	// Fetch relevant data
 	ip := fetchIP(r)
 	tlsInfo := fetchTLS(r)
 	headers := fetchHeaders(r)
 
+	// Set and write response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
+	// Build whoami response
 	whoami := Whoami{
 		IP:      ip,
 		TLS:     tlsInfo,
@@ -125,9 +123,6 @@ func WhoHandler(w http.ResponseWriter, r *http.Request) {
 // NotFoundHandler is an http.Handler that is called when an invalid server route
 // is called
 func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
-	// Logging
-	log.Printf("%s %s", r.Method, r.URL.Path)
-
 	http.Error(w, "", http.StatusNotFound)
 }
 
