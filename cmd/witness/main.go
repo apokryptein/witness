@@ -17,12 +17,11 @@ import (
 )
 
 func main() {
-	// TODO:
-	// add flags for TLS key and cert
-
 	// Flag definitions
 	port := flag.String("port", "8080", "server listen port")
 	host := flag.String("host", "localhost", "host to bind to")
+	tlsCert := flag.String("tls-cert", "", "path to TLS certificate file")
+	tlsKey := flag.String("tls-key", "", "path to TLS key file")
 	tokens := flag.String("tokens", "", "bearer tokens (comma-separated, none = no auth)")
 	flag.Parse()
 
@@ -36,6 +35,8 @@ func main() {
 	// Create server config
 	s := server.Server{
 		ListenAddr: fmt.Sprintf("%s:%s", *host, *port),
+		TLSCert:    *tlsCert,
+		TLSKey:     *tlsKey,
 		Handler:    setupRoutes(bearerTokens),
 	}
 
@@ -56,6 +57,8 @@ func main() {
 	cancel()
 }
 
+// setupRoutes instantiates a new http.ServeMux and instantiates our routes with the desired
+// middleware
 func setupRoutes(tokens []string) *http.ServeMux {
 	// Instantiate new mux
 	mux := http.NewServeMux()
@@ -94,6 +97,8 @@ func setupRoutes(tokens []string) *http.ServeMux {
 	return mux
 }
 
+// parseTokens parses a comma-separated list of bearer tokens and returns them
+// in a string slice
 func parseTokens(tokens string) []string {
 	// If no tokens, return empty slice
 	if tokens == "" {

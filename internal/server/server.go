@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
+// Server represents an HTTP/S server
 type Server struct {
-	ListenAddr string
-	TLSCert    string
-	TLSKey     string
-	Handler    http.Handler
+	ListenAddr string       // IP:PORT
+	TLSCert    string       // Path to TLS certificate
+	TLSKey     string       // Path to TLS key
+	Handler    http.Handler // *http.ServeMux containing our routes
 }
 
+// Run runs an HTTP/S server for a given server configuration struct
 func (s *Server) Run(ctx context.Context) error {
 	// Instantiate http.Server w/ relevant values
 	server := &http.Server{
@@ -26,8 +28,10 @@ func (s *Server) Run(ctx context.Context) error {
 	// DEBUG
 	fmt.Printf("[INFO] Server listening on: %s\n", s.ListenAddr)
 
+	// Create error channel
 	errChan := make(chan error, 1)
 
+	// Run server in go func -> non-blocking
 	go func() {
 		var err error
 		if s.TLSCert != "" && s.TLSKey != "" {
@@ -40,6 +44,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}()
 
+	// Listen for an error from the server or from a sigterm or interrupt
 	select {
 	case err := <-errChan:
 		return fmt.Errorf("server failed: %w", err)
