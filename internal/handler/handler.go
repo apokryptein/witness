@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -37,6 +38,7 @@ type Whoami struct {
 func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	// Logging
 	log.Printf("%s %s", r.Method, r.URL.Path)
+	log.Printf("Content-Length: %d\n", r.ContentLength)
 
 	// Read body
 	body, err := io.ReadAll(r.Body)
@@ -44,8 +46,12 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read body", http.StatusInternalServerError)
 	}
 
+	// Set content-length header for echo reply
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.WriteHeader(http.StatusOK)
+
 	// Echo body back
-	fmt.Fprintf(w, "%s", body)
+	w.Write(body)
 }
 
 // IPHandler is an http.Handler that contains logic for an endpoint to return the client's IP address
@@ -133,15 +139,26 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 // for public IP address. If this value is nil, it returns
 // the RemoteAddr instead
 func fetchIP(req *http.Request) string {
-	// Look for X-FORWARDED-FOR header
-	ip := req.Header.Get("X-FORWARDED-FOR")
+	// Look for X-Forwarded-For header
+	// X-Forwarded-For: <client>, <proxy>
+	// X-Forwarded-For: <client>, <proxy>, …, <proxyN>
+	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take the first IP (original client)
+		if idx := strings.Index(xff, ","); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
 
-	// If header not present, set IP to RemoteAddr
-	if ip == "" {
-		ip = req.RemoteAddr
+		// If only one value (no proxies), return XFF
+		return strings.TrimSpace(xff)
 	}
 
-	return ip
+	// Check for X-Real-IP (nginx)
+	if xri := req.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+
+	// Otherwise, return req.RemoteAddr
+	return req.RemoteAddr
 }
 
 // fetchHeaders retrieves and retruns all headers from the provided
@@ -149,8 +166,10 @@ func fetchIP(req *http.Request) string {
 func fetchHeaders(req *http.Request) map[string]string {
 	headers := make(map[string]string)
 
+	// Iterate over all headers and store in headers map
 	for header, values := range req.Header {
-		headers[header] = values[0]
+		// If more than one value join with ','
+		headers[header] = strings.Join(values, ", ")
 	}
 
 	return headers

@@ -23,7 +23,7 @@ func main() {
 	mux.HandleFunc("/ip", handler.IPHandler)
 	mux.HandleFunc("/health", handler.HealthHandler)
 	mux.HandleFunc("/whoami", handler.WhoHandler)
-	mux.HandleFunc("/headers", handler.HealthHandler)
+	mux.HandleFunc("/headers", handler.HeaderHandler)
 	mux.HandleFunc("/", handler.NotFoundHandler)
 
 	// LOG
