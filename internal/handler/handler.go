@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,8 +18,10 @@ import (
 
 // TLSData represents pertinent TLS data
 type TLSData struct {
-	Version     uint16
-	CipherSuite uint16
+	Version         uint16
+	VersionName     string
+	CipherSuite     uint16
+	CipherSuiteName string
 }
 
 // Whoami represents selected data for the whoami endpoint
@@ -180,7 +183,9 @@ func fetchTLS(req *http.Request) TLSData {
 	tlsInfo := req.TLS
 
 	return TLSData{
-		Version:     tlsInfo.Version,
-		CipherSuite: tlsInfo.CipherSuite,
+		Version:         tlsInfo.Version,
+		VersionName:     tls.VersionName(tlsInfo.Version),
+		CipherSuite:     tlsInfo.CipherSuite,
+		CipherSuiteName: tls.CipherSuiteName(tlsInfo.CipherSuite),
 	}
 }
